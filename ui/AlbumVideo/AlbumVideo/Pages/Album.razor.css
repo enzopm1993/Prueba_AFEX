@@ -1,0 +1,47 @@
+﻿.cards {
+    cursor: pointer;
+}
+
+.cards:hover {
+    transform: scale(1.02);
+}
+
+/*.cards:hover ~ .btn-close {
+    top: 30px;
+    right: 177px;
+}*/
+
+.cards:hover .btn-close {
+    top: 5px;
+    right: 48px;
+}
+
+.cards:hover .text-white {
+    top: 153px;
+    right: 48px;
+}
+
+.btn-close {
+    top: 5px;
+    right: 60px;
+    position: absolute;
+}
+
+.btn-close:hover {
+    transform: scale(1.1);
+}
+
+.text-white {
+    top: 153px;
+    right: 59px;
+    position: absolute;
+}
+
+#DetalleVideo {
+    top: 13px;
+    right: 12px;
+    width:550px;
+    position: absolute;
+}
+
+

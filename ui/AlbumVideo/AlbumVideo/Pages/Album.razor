@@ -1,0 +1,296 @@
+﻿@page "/"
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Web;
+@using AlbumVideo.Models;
+@using System.Xml;
+@inject IHttpClientFactory ClientFactory
+@inject Microsoft.Extensions.Configuration.IConfiguration config
+@inject IJSRuntime JS
+
+<br />
+<div class="alert alert-success" id="success-alert" hidden>
+    <button type="button" class="close" data-dismiss="alert">x</button>
+    <strong>Hecho! </strong> <label id="msjSuccess"></label>
+</div>
+<div class="alert alert-danger" id="error-alert" hidden>
+    <button type="button" class="close" data-dismiss="alert">x</button>
+    <strong>Error! </strong> <label id="msjError"></label>
+</div>
+<div class="container">
+    <div class="row justify-content-md-center">
+        <div class="col col-lg-10">
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" placeholder="Añadir URL del video"
+                       aria-label="Añadir URL del video" aria-describedby="basic-addon2" id="txtVideoURL"
+                       @bind="VideoURL">
+                <div class="input-group-append">
+                    <button class="btn btn-primary" type="button" style="width:200px" @onclick="AddVideo">Añadir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <hr />
+
+    <div class="row">
+        @foreach (var video in videos)
+        {
+            <div class="col col-lg-4 mt-5">
+                <div class="cards" id="CardVideo">
+                    <div class="first text-center">
+                        <img src="@video.ImagenAlbum" data-bs-toggle="modal" data-bs-target="#ModalDataVideo" @onclick="() => MostrarDataVideo(video.VideoId)" />
+                    </div>
+                    <button type="button" class="btn-close btn-dark" style="background-color:white;" aria-label="Close" @onclick="() => ConfirmarEliminar(video.VideoId)"></button>
+                    <label class="text-white bg-dark">@video.Duracion.ToString("HH:mm:ss")</label>
+                </div>
+
+            </div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="ModalConfirmacion" tabindex="-1" aria-labelledby="ModalConfirmacionLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ModalConfirmacionLabel">Confirmación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="right:15px;top:15px;" @onclick="DescartarEliminacion"></button>
+            </div>
+            <div class="modal-body">
+                Está seguro que desea eliminar este video?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="DescartarEliminacion">Cancelar</button>
+                <button type="button" class="btn btn-primary" @onclick="EliminarVideo">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="ModalDataVideo" tabindex="-1" aria-labelledby="ModalDataVideoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="right:15px;top:10px;" @onclick="DescartarEliminacion"></button>
+            </div>
+            <div class="modal-body">
+                <iframe width="520" height="340"
+                        src="https://www.youtube.com/embed/@VideoIdURL">
+                </iframe>
+                <div id="DetalleVideo">
+                    <h5>@VideoTitulo</h5>
+                    <label>@VideoFecha</label>
+                    <label>@VideoDescripcion</label>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    private IEnumerable<VideoClass> videos = Array.Empty<VideoClass>();
+    private int VideoId;
+    private string VideoURL;
+    private string VideoTitulo;
+    private DateTime VideoFecha;
+    private string VideoDescripcion;
+    private string VideoIdURL;
+
+    private IJSObjectReference jsModule;
+    private ApiYoutubeClass resultApi = null;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./Pages/Album.razor.js");
+            await refreshList();
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task refreshList()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                config["API_URL"] + "video");
+
+            var client = ClientFactory.CreateClient();
+
+            var response = await client.SendAsync(request);
+
+            using var responseStream = await response.Content.ReadAsStreamAsync();
+            videos = await JsonSerializer.DeserializeAsync<IEnumerable<VideoClass>>(responseStream);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            await jsModule.InvokeVoidAsync("AlertaError", ex.Message);
+        }
+    }
+
+    private async Task ConsultarApiYoutube()
+    {
+        try
+        {
+            var uri = new Uri(VideoURL);
+            var query = HttpUtility.ParseQueryString(uri.Query);
+
+            string videoId = string.Empty;
+
+            if (query.AllKeys.Contains("v"))
+            {
+                videoId = query["v"];
+            }
+            else
+            {
+                videoId = uri.Segments.Last();
+            }
+
+            string ApiYoutube = config["API_YOUTUBE_URL"].Replace("[%ID_VIDEO]", videoId);
+
+            var request = new HttpRequestMessage(HttpMethod.Get, ApiYoutube);
+
+            var client = ClientFactory.CreateClient();
+
+            var response = await client.SendAsync(request);
+
+            using var responseStream = await response.Content.ReadAsStreamAsync();
+            resultApi = await JsonSerializer.DeserializeAsync<ApiYoutubeClass>(responseStream);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            await jsModule.InvokeVoidAsync("AlertaError", ex.Message);
+        }
+    }
+
+    private async Task AddVideo()
+    {
+        try
+        {
+            if (VideoURL != null && VideoURL != "")
+            {
+                await ConsultarApiYoutube();
+
+                if (resultApi != null)
+                {
+                    TimeSpan timeDuration = XmlConvert.ToTimeSpan(resultApi.items[0].contentDetails.duration);
+                    DateTime Duracion = new DateTime(2000, 01, 01);
+                    Duracion = Duracion + timeDuration;
+
+                    var Obj = new VideoClass()
+                        {
+                            VideoURL = VideoURL,
+                            Titulo = resultApi.items[0].snippet.title,
+                            Descripcion = resultApi.items[0].snippet.description,
+                            ImagenAlbum = resultApi.items[0].snippet.thumbnails.medium.url,
+                            FechaVideo = resultApi.items[0].snippet.publishedAt,
+                            Duracion = Duracion
+                        };
+
+                    var request = new HttpRequestMessage(HttpMethod.Post,
+                        config["API_URL"] + "video");
+                    request.Content = new StringContent(JsonSerializer.Serialize(Obj), null, "application/json");
+
+                    var client = ClientFactory.CreateClient();
+
+                    var response = await client.SendAsync(request);
+
+                    using var responseStream = await response.Content.ReadAsStreamAsync();
+                    string res = await JsonSerializer.DeserializeAsync<string>(responseStream);
+
+                    await jsModule.InvokeVoidAsync("AlertaSuccess", res);
+                    await jsModule.InvokeVoidAsync("LimpiarControles");
+                }
+                else
+                {
+                    await jsModule.InvokeVoidAsync("AlertaError", "No se pudo consumir la api de Youtube!");
+                }
+            }
+            else
+            {
+                await jsModule.InvokeVoidAsync("AlertaError", "El campo de URL de video no puede estar vacío");
+            }
+
+            await refreshList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            await jsModule.InvokeVoidAsync("AlertaError", ex.Message);
+        }
+    }
+
+    private async Task ConfirmarEliminar(int VideoId)
+    {
+        this.VideoId = VideoId;
+        await jsModule.InvokeVoidAsync("ConfirmaEliminar");
+    }
+
+    private async Task EliminarVideo()
+    {
+        try
+        {
+            var Obj = new VideoClass()
+                {
+                    VideoId = VideoId
+                };
+
+            var request = new HttpRequestMessage(HttpMethod.Put,
+                config["API_URL"] + "video");
+            request.Content = new StringContent(JsonSerializer.Serialize(Obj), null, "application/json");
+
+            var client = ClientFactory.CreateClient();
+
+            var response = await client.SendAsync(request);
+
+            using var responseStream = await response.Content.ReadAsStreamAsync();
+            string res = await JsonSerializer.DeserializeAsync<string>(responseStream);
+
+            await jsModule.InvokeVoidAsync("EliminacionConfirmada");
+            await jsModule.InvokeVoidAsync("AlertaSuccess", res);
+            await refreshList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            await jsModule.InvokeVoidAsync("AlertaError", ex.Message);
+        }
+    }
+
+    private void DescartarEliminacion()
+    {
+        this.VideoId = 0;
+    }
+
+    private void MostrarDataVideo(int VideoId)
+    {
+        foreach (var video in videos.Where(r => r.VideoId == VideoId))
+        {
+            VideoTitulo = video.Titulo;
+            VideoFecha = video.FechaVideo;
+            VideoDescripcion = video.Descripcion;
+
+            var uri = new Uri(video.VideoURL);
+            var query = HttpUtility.ParseQueryString(uri.Query);
+            if (query.AllKeys.Contains("v"))
+            {
+                VideoIdURL = query["v"];
+            }
+            else
+            {
+                VideoIdURL = uri.Segments.Last();
+            }
+
+
+            break;
+        }
+    }
+
+}

@@ -1,0 +1,48 @@
+/* _content/AlbumVideo/Pages/Album.razor.rz.scp.css */
+.cards[b-jn4ql9bscr] {
+    cursor: pointer;
+}
+
+.cards:hover[b-jn4ql9bscr] {
+    transform: scale(1.02);
+}
+
+/*.cards:hover ~ .btn-close {
+    top: 30px;
+    right: 177px;
+}*/
+
+.cards:hover .btn-close[b-jn4ql9bscr] {
+    top: 5px;
+    right: 48px;
+}
+
+.cards:hover .text-white[b-jn4ql9bscr] {
+    top: 153px;
+    right: 48px;
+}
+
+.btn-close[b-jn4ql9bscr] {
+    top: 5px;
+    right: 60px;
+    position: absolute;
+}
+
+.btn-close:hover[b-jn4ql9bscr] {
+    transform: scale(1.1);
+}
+
+.text-white[b-jn4ql9bscr] {
+    top: 153px;
+    right: 59px;
+    position: absolute;
+}
+
+#DetalleVideo[b-jn4ql9bscr] {
+    top: 13px;
+    right: 12px;
+    width:550px;
+    position: absolute;
+}
+
+
